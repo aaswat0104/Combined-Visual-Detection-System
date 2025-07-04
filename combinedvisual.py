@@ -98,7 +98,6 @@ def process_persons(frame):
             distance_m = get_distance(width_px)
             pid = assign_id(cx, cy)
 
-            # Save cropped person image
             if pid not in saved_ids:
                 saved_ids.add(pid)
                 os.makedirs("persons", exist_ok=True)
@@ -106,12 +105,10 @@ def process_persons(frame):
                 if person_img.size > 0:
                     cv2.imwrite(f"persons/person{pid}.jpg", person_img)
 
-            # --- ✅ Draw ID label at proper place ---
             label = f"ID:{pid} {distance_m:.2f}m"
-            text_y = y1 - 10 if y1 - 10 > 10 else y1 + 15  # Keep text inside screen
+            text_y = y1 - 10 if y1 - 10 > 10 else y1 + 15
             cv2.putText(frame, label, (x1, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
 
-            # --- ✅ Draw contour if mask exists ---
             if r.masks is not None and i < len(masks):
                 mask = (masks[i] * 255).astype(np.uint8)
                 mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
@@ -124,50 +121,24 @@ def process_persons(frame):
                     if cv2.contourArea(cnt) > min_contour_area:
                         cv2.drawContours(frame, [cnt], -1, (0, 255, 0), 2)
             else:
-                # fallback box if no mask
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
             detections.append((cx, distance_m, pid))
 
     return frame, detections
 
-
 # ---------- MAIN ----------
-cv2.namedWindow("Radar Detection", cv2.WINDOW_NORMAL)
-cv2.setWindowProperty("Radar Detection", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+photo_path = "D:/radar/aaswat.jpeg"  # ✅ Correct full path to your image
+frame = cv2.imread(photo_path)
+if frame is None:
+    print("[ERROR] Image not found at", photo_path)
+    exit()
 
-cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+frame = cv2.resize(frame, (1280, 720))  # Optional: Resize to standard
+frame, detections = process_persons(frame)
+frame = draw_radar(frame, detections)
 
-prev_time = time.time()
-fps_counter = 0
-fps = 0
-
-while True:
-    success, frame = cap.read()
-    if not success:
-        break
-    original = frame.copy()
-    detections = []
-
-    if toggle_yolo:
-        frame, detections = process_persons(frame)
-
-    frame = draw_radar(frame, detections)
-
-    fps_counter += 1
-    now = time.time()
-    if now - prev_time >= 1:
-        fps = fps_counter
-        fps_counter = 0
-        prev_time = now
-
-    cv2.putText(frame, f"FPS: {fps}", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-    cv2.imshow("Radar Detection", frame)
-
-    key = cv2.waitKey(1)
-    if key == 27:  # ESC key
-        break
-
-cap.release()
+cv2.putText(frame, f"Static Image Mode", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+cv2.imshow("Radar Detection", frame)
+cv2.waitKey(0)
 cv2.destroyAllWindows()
